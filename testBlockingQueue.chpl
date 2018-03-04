@@ -191,9 +191,9 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
     timer.stop();
     return timer.elapsed();
 }
-var stressTestA = blockingQueueStressTest(20, 10, 1.0, 1.0, 20);
-var stressTestB = blockingQueueStressTest(20, 10, 1.5, 1.0, 20);
-var stressTestC = blockingQueueStressTest(20, 10, 1.0, 1.5, 20);
+var stressTestA = blockingQueueStressTest(20, 10, .2, .2, 20);
+var stressTestB = blockingQueueStressTest(20, 10, .3, .2, 20);
+var stressTestC = blockingQueueStressTest(20, 10, .2, .3, 20);
 
 /*
 var newQueue = new BlockingQueue(int, 13);
@@ -334,6 +334,7 @@ if (stressTestC < 0) {
 } 
 
 writeln("******************************");
+writeln("If all the tests passed, you will need to hit Ctrl + C to kill the extra threads.");
 
 //TODO: reinstantiate this as a Demo class to show them what our code looks like when it's running.
 //They took oer Jeerbs!
