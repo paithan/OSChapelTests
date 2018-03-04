@@ -1,12 +1,12 @@
 /*************************************
  * You can use this to test the Semaphore class you wrote in semaphore.chpl.
  *
- * Authors: Kyle Burke <paithanq@gmail.com> and Mat Goonan
+ * Authors: Kyle Burke <https://github.com/paithan> and Mat Goonan
  * Usage: (for testing a semaphore with 7 tokens, being queried by 15 threads, each of which uses it for a max of 12 seconds.
  * $ chpl testSemaphore.chpl
  * $ ./testSemaphore --k=7 --t=15 --m=12
  * Also, you can keep Semaphore.chpl in a subdirectory, then run by using it as a module (this is how Kyle will be testing your code):
- * $ chpl -M<subfolderName> testBlockingQueue.chpl
+ * $ chpl -M<subfolderName> testSemaphore.chpl
  * $ ./testSemaphore --k=7 --t=15 --m=12 
  * , where <subfolderName> is replaced by name of the folder your Semaphore.chpl is in.  (Yes, replace the carrots too.)
  **/
