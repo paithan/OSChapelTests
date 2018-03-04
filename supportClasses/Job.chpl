@@ -28,6 +28,9 @@ class Job {
     
     //Constructor.  Starts the clock 
     proc Job(jobLength : real) {
+        if (jobLength == 0) {
+            writeln("Created a job with zero length!");
+        }
         this.length = jobLength;
         this.isFinished = false;
         this.isWaiting = true;
