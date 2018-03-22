@@ -216,9 +216,9 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
         return timer.elapsed();
     }
 }
-var stressTestA = blockingQueueStressTest(10, 5, .001, .001, 200);
-var stressTestB = blockingQueueStressTest(20, 10, .09, .06, 20);
-var stressTestC = blockingQueueStressTest(40, 20, .06, .09, 20);
+var stressTestA = blockingQueueStressTest(10, 5, .0001, .0001, 200);
+var stressTestB = blockingQueueStressTest(20, 10, .09, .01, 20);
+var stressTestC = blockingQueueStressTest(40, 20, .02, .09, 20);
 
 /*
 var newQueue = new BlockingQueue(int, 13);
