@@ -156,6 +156,9 @@ for i in testDomain {
 //time for stress tests!
 //numRounds is the 
 proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWait : real, maxRemoveWait : real, numRounds : int) {
+    var inOrder : bool = true;
+    var sizeRestricted : atomic bool;
+    sizeRestricted.write(true);
     if (initialNumElements > capacity) {
         writeln("Stress test launched with bigger initial number of elements than the capacity!  Quitting!");
         return -1.0;
@@ -169,13 +172,16 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
     }
     sync {
         //the thread that adds elements
-        begin {
+        begin with (ref sizeRestricted) {
             var rng = new NPBRandomStream(real);
             for i in initialNumElements + 1..initialNumElements + (capacity * numRounds) {
                 var waitSeconds = rng.getNext() * maxAddWait;
                 sleep(waitSeconds);
                 q.add(i % capacity);
                 writeln(q);
+                if (q.getNumElements() > capacity) {
+                    sizeRestricted.write(false);
+                }
             }
         }
         //the thread that removes elements
@@ -185,15 +191,34 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
             sleep(waitSeconds);
             q.remove();
             writeln(q);
+            if (q.getNumElements() > capacity) {
+                sizeRestricted.write(false);
+            }
         }
     }
     writeln("Stress test completed!");
     timer.stop();
-    return timer.elapsed();
+    
+    //make sure all the elements are in the right place.
+    for i in 1..initialNumElements {
+        if (q.remove() != i) {
+            inOrder = false;
+        }
+    }
+    
+    //return the results
+    if (!sizeRestricted.read()) {
+        return -1.0; //the size is not properly restricted
+    } else if (!inOrder) {
+        return -2.0; //the elements are not in the right place
+    } else {
+        //everything's okay!  Return the time the test took.
+        return timer.elapsed();
+    }
 }
-var stressTestA = blockingQueueStressTest(20, 10, .2, .2, 20);
-var stressTestB = blockingQueueStressTest(20, 10, .3, .2, 20);
-var stressTestC = blockingQueueStressTest(20, 10, .2, .3, 20);
+var stressTestA = blockingQueueStressTest(10, 5, .001, .001, 200);
+var stressTestB = blockingQueueStressTest(20, 10, .09, .06, 20);
+var stressTestC = blockingQueueStressTest(40, 20, .06, .09, 20);
 
 /*
 var newQueue = new BlockingQueue(int, 13);
@@ -319,16 +344,31 @@ if (stressTestA >= 0 && stressTestB >= 0 && stressTestC >= 0) {
 }
 if (stressTestA < 0) {
     writeln("* Stress Test A failed.");
+    if (stressTestA == -1.0) {
+        writeln("  Sometimes there were more than the allowed number of elements.");
+    } else if (stressTestA == -2.0) {
+        writeln("  The final array was out of order!  Something went wrong!");
+    }
 } else {
     writeln("* Stress Test A ran in ", stressTestA, " seconds.");
 } 
 if (stressTestB < 0) {
     writeln("* Stress Test B failed.");
+    if (stressTestB == -1.0) {
+        writeln("  Sometimes there were more than the allowed number of elements.");
+    } else if (stressTestB == -2.0) {
+        writeln("  The final array was out of order!  Something went wrong!");
+    }
 } else {
     writeln("* Stress Test B ran in ", stressTestB, " seconds.");
 } 
 if (stressTestC < 0) {
     writeln("* Stress Test C failed.");
+    if (stressTestC == -1.0) {
+        writeln("  Sometimes there were more than the allowed number of elements.");
+    } else if (stressTestC == -2.0) {
+        writeln("  The final array was out of order!  Something went wrong!");
+    }
 } else {
     writeln("* Stress Test C ran in ", stressTestC, " seconds.");
 } 
