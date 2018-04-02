@@ -1,6 +1,6 @@
 /*************************************
  * You can use this code to test the BlockingQueue class you wrote in BlockingQueue.chpl.
- * 
+ *
  * Author: Kyle Burke <https://github.com/paithan>
  */
 
@@ -154,8 +154,8 @@ for i in testDomain {
 
 
 //time for stress tests!
-//numRounds is the 
-proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWait : real, maxRemoveWait : real, numRounds : int) {
+//numRounds is the
+proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWait : real, maxRemoveWait : real, numRounds : int, verbose : bool = true) {
     var inOrder : bool = true;
     var sizeRestricted : atomic bool;
     sizeRestricted.write(true);
@@ -178,7 +178,11 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
                 var waitSeconds = rng.getNext() * maxAddWait;
                 sleep(waitSeconds);
                 q.add(i % capacity);
-                writeln(q);
+                if(verbose) {
+                  writeln(q);
+                } else {
+                  writeln(q.getNumElements());
+                }
                 if (q.getNumElements() > capacity) {
                     sizeRestricted.write(false);
                 }
@@ -190,7 +194,11 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
             var waitSeconds = rng.getNext() * maxRemoveWait;
             sleep(waitSeconds);
             q.remove();
-            writeln(q);
+            if(verbose) {
+              writeln(q);
+            } else {
+              writeln(q.getNumElements());
+            }
             if (q.getNumElements() > capacity) {
                 sizeRestricted.write(false);
             }
@@ -198,14 +206,14 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
     }
     writeln("Stress test completed!");
     timer.stop();
-    
+
     //make sure all the elements are in the right place.
     for i in 1..initialNumElements {
         if (q.remove() != i) {
             inOrder = false;
         }
     }
-    
+
     //return the results
     if (!sizeRestricted.read()) {
         return -1.0; //the size is not properly restricted
@@ -219,6 +227,7 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
 var stressTestA = blockingQueueStressTest(10, 5, .0001, .0001, 200);
 var stressTestB = blockingQueueStressTest(20, 10, .09, .01, 20);
 var stressTestC = blockingQueueStressTest(40, 20, .02, .09, 20);
+var stressTestD = blockingQueueStressTest(200, 50, .01, .02, 20, false);
 
 /*
 var newQueue = new BlockingQueue(int, 13);
@@ -274,7 +283,7 @@ if (typeStringTest && typeIntTest && typeSemaphoreTest) {
 } else {
     if (!typeStringTest) {
         writeln("* Does not work with strings.");
-    } 
+    }
     if (!typeIntTest) {
         writeln("* Does not work with ints.");
     }
@@ -339,7 +348,7 @@ if (orderTest[1] == 1 && orderTest[2] == 2 && orderTest[3] == 3 && orderTest[4] 
 writeln("* ");
 
 //report about Stress Tests
-if (stressTestA >= 0 && stressTestB >= 0 && stressTestC >= 0) {
+if (stressTestA >= 0 && stressTestB >= 0 && stressTestC >= 0 && stressTestD >= 0) {
     writeln("* Stress tests all passed!");
 }
 if (stressTestA < 0) {
@@ -351,7 +360,7 @@ if (stressTestA < 0) {
     }
 } else {
     writeln("* Stress Test A ran in ", stressTestA, " seconds.");
-} 
+}
 if (stressTestB < 0) {
     writeln("* Stress Test B failed.");
     if (stressTestB == -1.0) {
@@ -361,7 +370,7 @@ if (stressTestB < 0) {
     }
 } else {
     writeln("* Stress Test B ran in ", stressTestB, " seconds.");
-} 
+}
 if (stressTestC < 0) {
     writeln("* Stress Test C failed.");
     if (stressTestC == -1.0) {
@@ -371,7 +380,17 @@ if (stressTestC < 0) {
     }
 } else {
     writeln("* Stress Test C ran in ", stressTestC, " seconds.");
-} 
+}
+if (stressTestD < 0) {
+    writeln("* Stress Test D failed.");
+    if (stressTestD == -1.0) {
+        writeln("  Sometimes there were more than the allowed number of elements.");
+    } else if (stressTestD == -2.0) {
+        writeln("  The final array was out of order!  Something went wrong!");
+    }
+} else {
+    writeln("* Stress Test D ran in ", stressTestD, " seconds.");
+}
 
 writeln("******************************");
 writeln("If all the tests passed, you will need to hit Ctrl + C to kill the extra threads.");
