@@ -24,7 +24,7 @@ use CPU;
 //configurable constants
 config const n = 100;
 config const c = 3;
-config const t = 3;
+config const t : real = 3.0;
 
 //better names
 var numberJobs = n;
@@ -46,9 +46,9 @@ var scores : [scoresDomain] int;
 scores = (35, 30, 25, 20, 15, 10, 5); 
 
 var maxGoals, avgGoals, hybridGoals : [scores.domain] real;
-maxGoals = (10, 15, 30, 40, 50, 60, 80);
-avgGoals = (3, 5, 10, 15, 20, 25, 35);
-hybridGoals = (30, 40, 60, 80, 100, 120, 150);
+maxGoals = (3.5 * maxTime, 5 * maxTime, 10*maxTime, 13.5*maxTime, 17*maxTime, 20*maxTime, 27*maxTime);
+avgGoals = (maxTime, 2*maxTime, 3.5*maxTime, 5*maxTime, 7*maxTime, 8.5*maxTime, 12*maxTime);
+hybridGoals = (10*maxTime, 13.5*maxTime, 20*maxTime, 27*maxTime, 33.5*maxTime, 40*maxTime, 50*maxTime);
 
 var things : [0..2, 0..3] real;
 
@@ -159,6 +159,7 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
     //get the appropriate score
     var efficiencyMeasure = jobs.reportStats(modeIndex);
     var score = 0;
+    var maxScore = scores[0];
     var goalMade = "none";
     
     for i in scores.domain {
@@ -170,11 +171,11 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
             break;
         }
     }
-    var description = "Results of " + mode + " test:\nRecorded time: " + efficiencyMeasure + "s.\nBest goal passed: " + goalMade + "\nPoints earned: " + score + "/30\n\n";
+    var description = "Results of " + mode + " test:\nRecorded time: " + efficiencyMeasure + "s.\nBest goal passed: " + goalMade + "\nPoints earned: " + score + "/" + maxScore + "\n\n";
     
     writeln(description);
     
-    return new TestResult(score, 30, description);
+    return new TestResult(score, maxScore, description);
     
     /* Old version
     
