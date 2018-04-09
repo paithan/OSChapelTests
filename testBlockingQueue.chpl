@@ -1,12 +1,21 @@
 /*************************************
  * You can use this code to test the BlockingQueue class you wrote in BlockingQueue.chpl.
  *
+ * Usage: 
+ * $ chpl -MYourFolderName testBlockingQueue.chpl
+ * $ ./testBlockingQueue --v=true
+ * Change the v constant to false to remove all the print statements.
+ *
  * Author: Kyle Burke <https://github.com/paithan>
  */
 
 use BlockingQueue;
 use Time;
 use Random;
+
+//short named version
+config const v = true;
+var verbose = v; //long named-version
 
 
 //This section tests that the queue can take different types.
@@ -178,11 +187,13 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
                 var waitSeconds = rng.getNext() * maxAddWait;
                 sleep(waitSeconds);
                 q.add(i % capacity);
+                //print out the queue or the size
                 if(verbose) {
                   writeln(q);
                 } else {
                   writeln(q.getNumElements());
                 }
+                //check that it's not too big
                 if (q.getNumElements() > capacity) {
                     sizeRestricted.write(false);
                 }
@@ -194,6 +205,7 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
             var waitSeconds = rng.getNext() * maxRemoveWait;
             sleep(waitSeconds);
             q.remove();
+            //print out the queue or the size
             if(verbose) {
               writeln(q);
             } else {
@@ -224,9 +236,9 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
         return timer.elapsed();
     }
 }
-var stressTestA = blockingQueueStressTest(10, 5, .0001, .0001, 200);
-var stressTestB = blockingQueueStressTest(20, 10, .09, .01, 20);
-var stressTestC = blockingQueueStressTest(40, 20, .02, .09, 20);
+var stressTestA = blockingQueueStressTest(10, 5, .0001, .0001, 200, verbose);
+var stressTestB = blockingQueueStressTest(20, 10, .09, .01, 20, verbose);
+var stressTestC = blockingQueueStressTest(40, 20, .02, .09, 20, verbose);
 var stressTestD = blockingQueueStressTest(200, 50, .01, .02, 20, false);
 
 /*
