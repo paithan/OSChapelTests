@@ -2,6 +2,7 @@
  * You can use this code to test the BlockingQueue class you wrote in BlockingQueue.chpl.
  *
  * Author: Kyle Burke <https://github.com/paithan>
+ * Author: Mat Goonan <https://github.com/matgoonan>
  */
 
 use BlockingQueue;
