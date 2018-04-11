@@ -7,6 +7,7 @@
  * Change the v constant to false to remove all the print statements.
  *
  * Author: Kyle Burke <https://github.com/paithan>
+ * Author: Mat Goonan <https://github.com/matgoonan>
  */
 
 use BlockingQueue;
