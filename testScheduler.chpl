@@ -22,14 +22,18 @@ use Scheduler;
 use CPU;
 
 //configurable constants
-config const n = 100;
+config const n = 15000;
 config const c = 3;
-config const t : real = 3.0;
+config const t : real = .001;
+config const p : bool = true;
+config const m : string = "all";
 
 //better names
 var numberJobs = n;
 var numCPUs = c;
 var maxTime = t;
+var printAll = p;
+var testMode = m;
 
 
 
@@ -46,9 +50,9 @@ var scores : [scoresDomain] int;
 scores = (35, 30, 25, 20, 15, 10, 5);
 
 var maxGoals, avgGoals, hybridGoals : [scores.domain] real;
-maxGoals = (3.5 * maxTime, 5 * maxTime, 10*maxTime, 13.5*maxTime, 17*maxTime, 20*maxTime, 27*maxTime);
-avgGoals = (maxTime, 2*maxTime, 3.5*maxTime, 5*maxTime, 7*maxTime, 8.5*maxTime, 12*maxTime);
-hybridGoals = (10*maxTime, 13.5*maxTime, 20*maxTime, 27*maxTime, 33.5*maxTime, 40*maxTime, 50*maxTime);
+maxGoals = (175 * maxTime, 350 * maxTime, 700*maxTime, 1500*maxTime, 3000*maxTime, 6000*maxTime, 12000*maxTime);
+avgGoals = (41 * maxTime, 52 * maxTime, 65 * maxTime, 85 * maxTime, 100*maxTime, 120*maxTime, 150*maxTime);
+hybridGoals = (500*maxTime, 510*maxTime, 520*maxTime, 540*maxTime, 570*maxTime, 610*maxTime, 650*maxTime);
 
 var things : [0..2, 0..3] real;
 
@@ -66,28 +70,29 @@ var results : TestResult;
 for i in trialsDomain {
     var nilResult : TestResult;
     var mode = modes[i];
-    writeln("About to run the " + mode + " test.");//  Press Enter to continue.");
-    //stdin.readln();
-    sleep(2);
-    var trialsIndex : int;
-    trialsIndex = i;
-    //var efficiencyGoal : real;
-    //efficiencyGoal = efficiencyGoals[i];
-    var xx : int;
-    xx = numCPUs;
-    var yy : string;
-    yy = mode;
-    var zz : int;
-    zz = numberJobs;
-    //runTest(mode, numCPUs, numJobs, efficiencyGoal);
-    var newResult = runTest(numCPUs, numberJobs, i);
+    if (testMode == "all" || testMode == mode) {
+        writeln("About to run the " + mode + " test.");//  Press Enter to continue.");
+        //stdin.readln();
+        sleep(2);
+        var trialsIndex : int;
+        trialsIndex = i;
+        //var efficiencyGoal : real;
+        //efficiencyGoal = efficiencyGoals[i];
+        var xx : int;
+        xx = numCPUs;
+        var yy : string;
+        yy = mode;
+        var zz : int;
+        zz = numberJobs;
+        //runTest(mode, numCPUs, numJobs, efficiencyGoal);
+        var newResult = runTest(numCPUs, numberJobs, i);
 
-    if (results == nilResult) {
-        results = newResult;
-    } else {
-        results = new TestResult(results, newResult);
+        if (results == nilResult) {
+            results = newResult;
+        } else {
+            results = new TestResult(results, newResult);
+        }
     }
-
     // I copied over the code from runTest because I can't figure out what's going on...
 }
 
@@ -96,6 +101,9 @@ writeln(results);
 
 
 proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
+    
+    var done = false;
+    
     var rng = new NPBRandomStream(real);
 
     var mode = modes[modeIndex];
@@ -123,15 +131,18 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
     var cpusDomain = {0..numCPUs-1};
     var cpus : [cpusDomain] CPU;
     forall i in cpus.domain {
-        cpus[i] = new CPU(schedulerToCPUs, "" + i);
+        cpus[i] = new CPU(schedulerToCPUs, "" + i, printAll);
         begin{
             cpus[i].start();
         }
     }
+    
+    //this is the queue that will add things to the scheduler
+    var newJobsToScheduler = new BlockingQueue(Job, numberJobs);
 
 
-    //Throw a first round of jobs at the Scheduler!
-    var firstRoundSize = max(10, 3 * numCPUs);
+    //Throw a first round of jobs in it.  There's no waiting between creation of jobs.
+    var firstRoundSize = max(800, 50 * numCPUs);
     forall i in 1..(firstRoundSize) {
         var nextFactor = rng.getNext();
         //writeln("nextFactor: ", nextFactor);
@@ -140,19 +151,43 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
         //writeln("jobLength: ", jobLength);
         var job = new Job(jobLength);
         jobs.add(job); //add it to the group
-        scheduler.addJob(job);
+        newJobsToScheduler.add(job); 
     }
-
-    var numRemainingJobs = numberJobs - firstRoundSize;
+    
+    //this thread to regularly print out how many jobs are waiting and how many have completed
+    begin with (ref done) {
+        while (!done) {
+            writeln(scheduler.getNumJobsWaiting() + " jobs waiting; " + getNumJobsCompleted(cpus) + " jobs completed.");
+            sleep(max(.5, maxTime * 20));
+        }
+    }
+    
+    
+    //this thread pulls jobs out of the queue and puts them into the scheduler.
+    //at this point, the scheduler should start doing things.
+    begin {
+        for i in 1..numberJobs {
+            /*
+            if (i % 100 == 0) {
+                writeln("added job ", i);
+            }*/
+            scheduler.addJob(newJobsToScheduler.remove());
+        }
+    }
 
     //Throw the rest of the jobs at the Scheduler
     //for each cpu, create a separate thread to add jobs
+    var numRemainingJobs = numberJobs - firstRoundSize;
     coforall i in cpusDomain {
         for j in 1..(numRemainingJobs / numCPUs) {
             var job = new Job(rng.getNext() * maxTime);
             jobs.add(job);
-            begin { scheduler.addJob(job); } //don't wait on this
-            sleep(.96 * (rng.getNext() * maxTime));
+            newJobsToScheduler.add(job);
+            //begin { scheduler.addJob(job); } //don't wait on this
+            
+            //wait some time before adding the next job
+            //sleep(.96 * (rng.getNext() * maxTime));
+            sleep(.44 * maxTime - .000008); //the .000008 is about the time the loop takes.
         }
     }
 
@@ -174,6 +209,8 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
     var description = "Results of " + mode + " test:\nRecorded time: " + efficiencyMeasure + "s.\nBest goal passed: " + goalMade + "\nPoints earned: " + score + "/" + maxScore + "\n\n";
 
     writeln(description);
+    
+    done = true;
 
     return new TestResult(score, maxScore, description);
 
@@ -225,6 +262,14 @@ class TestResult {
         writer.write(this.getDescription());
     }
 
+}
+
+proc getNumJobsCompleted(cpus : [] CPU) {
+    var numJobs = 0;
+    for cpu in cpus {
+        numJobs += cpu.getNumJobsCompleted();
+    }
+    return numJobs;
 }
 
 
@@ -281,14 +326,14 @@ class JobGroup {
         }
 
         var avgWaitTime = totalWaitTime / this.numJobs;
-        var hybridWaitTime = 2 * avgWaitTime + maxWaitTime;
+        var hybridWaitTime = 5 * avgWaitTime + maxWaitTime;
 
         writeln("~~~~~~~~~~~~~~~~~~~~~~");
         writeln("Job stats calculated!");
         writeln(this.numJobs, " jobs completed!");
         writeln("Maximum wait time: ", maxWaitTime);
         writeln("Average wait time: ", avgWaitTime);
-        writeln("Hybrid wait time (max + 2 x avg): ", hybridWaitTime);
+        writeln("Hybrid wait time (max + 5 x avg): ", hybridWaitTime);
         writeln("~~~~~~~~~~~~~~~~~~~~~~~");
 
         var stats : [0..2] real;

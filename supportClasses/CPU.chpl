@@ -10,6 +10,9 @@ use BlockingQueue;
 
 //CPU class
 class CPU {
+    
+    //whether or not this prints the result of each job
+    var verbosePrint : bool;
 
     //The incoming queue of Jobs.
     var incoming : BlockingQueue(Job);
@@ -33,7 +36,8 @@ class CPU {
     var numJobsCompleted : int;
     
     //Constructor.
-    proc CPU(queue: BlockingQueue(Job), name : string) {
+    proc CPU(queue: BlockingQueue(Job), name : string, printsAll : bool) {
+        this.verbosePrint = printsAll;
         this.incoming = queue;
         this.name = name;
         this.active = true;
@@ -55,7 +59,9 @@ class CPU {
             job.stopRunning();
             this.waitTimes[this.numJobsCompleted] = job.getWaitTime();
             this.latencies[this.numJobsCompleted] = job.getLatency();
-            writeln("CPU " + this.name + " completed job #", this.numJobsCompleted, ":\n  Wait Time: ", this.waitTimes[this.numJobsCompleted], "s\n  Length: ", job.getLength() + "s\n  Latency: ", this.latencies[this.numJobsCompleted], "s");
+            if (this.verbosePrint) {
+                writeln("CPU " + this.name + " completed job #", this.numJobsCompleted, ":\n  Wait Time: ", this.waitTimes[this.numJobsCompleted], "s\n  Length: ", job.getLength() + "s\n  Latency: ", this.latencies[this.numJobsCompleted], "s");
+            }
             this.numJobsCompleted +=1;
         }
         //reset the size of the completed domain so that it doesn't have a bunch of zeroes at the end.
@@ -63,6 +69,11 @@ class CPU {
         //print out the stats
         writeln(this);
         writeln(this.incoming);
+    }
+    
+    //gets the number of jobs this CPU has completed
+    proc getNumJobsCompleted() {
+        return this.numJobsCompleted;
     }
     
     //Shuts down the CPU.
