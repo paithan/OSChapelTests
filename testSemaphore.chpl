@@ -53,9 +53,9 @@ proc testSemaphoreNoWait(semaphore : Semaphore) : bool {
     
 }
 
-var successNoWaitA = testSemaphoreNoWait(new Semaphore(20));
-var successNoWaitB = testSemaphoreNoWait(new Semaphore(200));
-var successNoWaitC = testSemaphoreNoWait(new Semaphore(2000));
+var successNoWaitA = testSemaphoreNoWait(new owned Semaphore(20));
+var successNoWaitB = testSemaphoreNoWait(new owned Semaphore(200));
+var successNoWaitC = testSemaphoreNoWait(new owned Semaphore(2000));
 
 
 //Test: Create a new Semaphore with zero tokens and make sure you can't claim
@@ -89,9 +89,9 @@ proc testSemaphoreBlocks(semaphore : Semaphore) : bool {
     return success;
 }
 
-var successBlocksA = testSemaphoreBlocks(new Semaphore(0));
-var successBlocksB = testSemaphoreBlocks(new Semaphore(1));
-var successBlocksC = testSemaphoreBlocks(new Semaphore(7));
+var successBlocksA = testSemaphoreBlocks(new owned Semaphore(0));
+var successBlocksB = testSemaphoreBlocks(new owned Semaphore(1));
+var successBlocksC = testSemaphoreBlocks(new owned Semaphore(7));
 
 
 proc semaphoreStressTest(numTokens : int, numThreads : int, maxSeconds : real) : real {
@@ -101,8 +101,8 @@ proc semaphoreStressTest(numTokens : int, numThreads : int, maxSeconds : real) :
     numWaiting.write(numThreads);
     var quittingTime : atomic bool;
     quittingTime.write(false);
-    var semaphore = new Semaphore(numTokens);
-    var rng = new NPBRandomStream(real);
+    var semaphore = new owned Semaphore(numTokens);
+    var rng = new owned NPBRandomStream(real);
     var timeToWaitBeforeQuitting = 2 * (maxSeconds * numThreads / numTokens) / 5;
     sync {
         //the thread to test that things finished
