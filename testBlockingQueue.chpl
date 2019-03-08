@@ -21,10 +21,12 @@ var verbose = v; //long named-version
 
 //This section tests that the queue can take different types.
 
+writeln("Testing on different types.");
+
 writeln("Testing on strings...");
 var typeStringTest = false;
 begin with (ref typeStringTest) {
-    var q = new BlockingQueue(string, 10);
+    var q = new owned BlockingQueue(string, 10);
     q.add("");
     q.add("Cookie Monster!");
     typeStringTest = true;
@@ -33,7 +35,7 @@ begin with (ref typeStringTest) {
 writeln("Testing on ints...");
 var typeIntTest = false;
 begin with (ref typeIntTest) {
-    var q = new BlockingQueue(int, 10);
+    var q = new owned BlockingQueue(int, 10);
     q.add(17);
     q.add(-4);
     typeIntTest = true;
@@ -42,23 +44,28 @@ begin with (ref typeIntTest) {
 writeln("Testing on Semaphores...");
 var typeSemaphoreTest = false;
 begin with (ref typeSemaphoreTest) {
-    var q = new BlockingQueue(Semaphore, 10);
-    q.add(new Semaphore(200));
-    q.add(new Semaphore(2));
+    var q = new owned BlockingQueue(owned Semaphore, 10);
+    var s1 = new owned Semaphore(200);
+    var s2 = new owned Semaphore(2);
+    q.add(s1);
+    q.add(s2);
     typeSemaphoreTest = true;
 }
 
+writeln("Done testing types.");
 
 
+writeln("Starting the block-on-removal tests.");
 
 //This section tests that the queue blocks when empty.
 //First, starting from empty.
 var blockEmptyOnRemoveTestA = true; //Becomes false if it doesn't block
 begin with (ref blockEmptyOnRemoveTestA) {
-    var q = new BlockingQueue(int, 10);
+    var q = new owned BlockingQueue(int, 10);
     //writeln("Running the first test!  Trying to remove from an empty queue.  Nothing should happen.");
     //writeln("Ctrl + C to kill this.");
     q.remove();
+    //we should never get here
     writeln("BlockingQueue.remove() doesn't block when the queue is empty (Test A)!");
     blockEmptyOnRemoveTestA = false;
 }
@@ -66,12 +73,13 @@ begin with (ref blockEmptyOnRemoveTestA) {
 //Second, adding one and removing two.
 var blockEmptyOnRemoveTestB = true; //becomes false if it doesn't block
 begin with (ref blockEmptyOnRemoveTestB) {
-    var q = new BlockingQueue(int, 10);
+    var q = new owned BlockingQueue(int, 10);
     q.add(0);
     //writeln("Running the second test!  Trying to remove from an empty queue.  Nothing should happen.");
     //writeln("Ctrl + C to kill this.");
     q.remove();
     q.remove();
+    //code should never reach here
     writeln("BlockingQueue.remove() doesn't block when the queue is empty (Test B)!");
     blockEmptyOnRemoveTestB = false;
 }
@@ -80,7 +88,7 @@ begin with (ref blockEmptyOnRemoveTestB) {
 var blockEmptyOnRemoveTestC = true; //becomes false if it doesn't block
 begin with (ref blockEmptyOnRemoveTestC) {
     var size = 10;
-    var q = new BlockingQueue(int, size);
+    var q = new owned BlockingQueue(int, size);
     for i in 1..size {
         q.add(0);
     }
@@ -89,9 +97,16 @@ begin with (ref blockEmptyOnRemoveTestC) {
     for i in 1..size + 1 {
         q.remove();
     }
+    //this should be dead code
     writeln("BlockingQueue.remove() doesn't block when the queue is empty (Test C)!");
     blockEmptyOnRemoveTestC = false;
 }
+
+
+writeln("Finished launching the block-on-removal tests...");
+
+
+writeln("Launching the block-on-add tests...");
 
 
 //This section tests that add blocks when the queue is full.
@@ -99,7 +114,7 @@ begin with (ref blockEmptyOnRemoveTestC) {
 var blockFullOnAddTestA = true; //becomes false if it doesn't block
 begin with (ref blockFullOnAddTestA) {
     var size = 10;
-    var q = new BlockingQueue(int, size);
+    var q = new owned BlockingQueue(int, size);
     for i in 1..size {
         q.add(0);
     }
@@ -111,7 +126,7 @@ begin with (ref blockFullOnAddTestA) {
 var blockFullOnAddTestB = true; //becomes false if it doesn't block
 begin with (ref blockFullOnAddTestB) {
     var size = 10;
-    var q = new BlockingQueue(int, size);
+    var q = new owned BlockingQueue(int, size);
     for i in 1..size {
         q.add(0);
     }
@@ -126,9 +141,15 @@ begin with (ref blockFullOnAddTestB) {
 }
 
 
+writeln("Finished launching the block-on-add tests...");
+
+
+writeln("Testing getNumElements...");
+
+
 //This section tests that getNumElements works.
 
-var intQueue = new BlockingQueue(int, 10);
+var intQueue = new owned BlockingQueue(int, 10);
 var getNumElementsTestA = intQueue.getNumElements(); //should be 0
 intQueue.add(5);
 intQueue.add(5);
@@ -142,10 +163,12 @@ for i in 4..10 {
 var getNumElementsTestC = intQueue.getNumElements(); //should be 10
 
 
+writeln("Testing the order of things...");
+
 
 //This section tests that the queue adds and removes things in the proper order.
 var testDomainMax = 5;
-intQueue = new BlockingQueue(int, testDomainMax);
+intQueue = new owned BlockingQueue(int, testDomainMax);
 var testDomain = 1..testDomainMax * 2;
 begin { //use a new thread so that some of the removes can happen too.
     for i in testDomain {
@@ -160,7 +183,7 @@ for i in testDomain {
 
 
 
-
+writeln("Launching the stress tests...");
 
 
 //time for stress tests!
@@ -176,14 +199,14 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
     writeln("Stress test launched!");
     var timer : Timer;
     timer.start();
-    var q = new BlockingQueue(int, capacity);
+    var q = new owned BlockingQueue(int, capacity);
     for i in 1..initialNumElements {
         q.add(i);
     }
     sync {
         //the thread that adds elements
         begin with (ref sizeRestricted) {
-            var rng = new NPBRandomStream(real);
+            var rng = new owned NPBRandomStream(real);
             for i in initialNumElements + 1..initialNumElements + (capacity * numRounds) {
                 var waitSeconds = rng.getNext() * maxAddWait;
                 sleep(waitSeconds);
@@ -201,7 +224,7 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
             }
         }
         //the thread that removes elements
-        var rng = new NPBRandomStream(real);
+        var rng = new owned NPBRandomStream(real);
         for i in initialNumElements + 1..initialNumElements + (capacity * numRounds) {
             var waitSeconds = rng.getNext() * maxRemoveWait;
             sleep(waitSeconds);
@@ -237,10 +260,18 @@ proc blockingQueueStressTest(capacity : int, initialNumElements : int, maxAddWai
         return timer.elapsed();
     }
 }
+writeln("Launching Stress Test A...");
 var stressTestA = blockingQueueStressTest(10, 5, .0001, .0001, 200, verbose);
+writeln("Stress Test A Complete!");
+writeln("Launching Stress Test B...");
 var stressTestB = blockingQueueStressTest(20, 10, .09, .01, 20, verbose);
+writeln("Stress Test B Complete!");
+writeln("Launching Stress Test C...");
 var stressTestC = blockingQueueStressTest(40, 20, .02, .09, 20, verbose);
+writeln("Stress Test C Complete!");
+writeln("Launching Stress Test D...");
 var stressTestD = blockingQueueStressTest(200, 50, .01, .02, 20, false);
+writeln("Stress Test D Complete!");
 
 /*
 var newQueue = new BlockingQueue(int, 13);
