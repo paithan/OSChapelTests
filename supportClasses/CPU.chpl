@@ -15,7 +15,7 @@ class CPU {
     var verbosePrint : bool;
 
     //The incoming queue of Jobs.
-    var incoming : BlockingQueue(Job);
+    var incoming : BlockingQueue(owned Job);
     
     //The domain for the list of completed jobs.  This will grow while we're running the CPU.
     var completedDomain = {0..1};
@@ -35,8 +35,8 @@ class CPU {
     //The number of jobs that have finished so far.
     var numJobsCompleted : int;
     
-    //Constructor.
-    proc CPU(queue: BlockingQueue(Job), name : string, printsAll : bool) {
+    //Initializer.
+    proc init(queue: BlockingQueue(owned Job), name : string, printsAll : bool) {
         this.verbosePrint = printsAll;
         this.incoming = queue;
         this.name = name;

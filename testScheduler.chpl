@@ -5,12 +5,12 @@
  * $ chpl -MteamNameProject2 testScheduler.chpl
  * $ ./testScheduler
  *
- * Inside the folder teamNameProject2 there should be five files:
+ * Inside the folder teamNameProject2 there should be three files:
  * * Semaphore.chpl
  * * BlockingQueue.chpl
- * * Job.chpl (available from https://raw.githubusercontent.com/paithan/OSChapelTests/master/supportClasses/Job.chpl)
- * * CPU.chpl (available from https://raw.githubusercontent.com/paithan/OSChapelTests/master/supportClasses/CPU.chpl)
  * * Scheduler.chpl
+ * 
+ * CPU.chpl and Job.chpl should not be in the folder!
  *
  * Author: Kyle Burke <https://github.com/paithan>
  */
@@ -65,10 +65,10 @@ var things : [0..2, 0..3] real;
 //efficiencyGoals = (30.5, 9.5, 50);
 
 
-var results : TestResult;
+var results : owned TestResult;
 
 for i in trialsDomain {
-    var nilResult : TestResult;
+    var nilResult : owned TestResult;
     var mode = modes[i];
     if (testMode == "all" || testMode == mode) {
         writeln("About to run the " + mode + " test.");//  Press Enter to continue.");
@@ -90,7 +90,7 @@ for i in trialsDomain {
         if (results == nilResult) {
             results = newResult;
         } else {
-            results = new TestResult(results, newResult);
+            results = new owned TestResult(results, newResult);
         }
     }
     // I copied over the code from runTest because I can't figure out what's going on...
@@ -100,11 +100,11 @@ writeln(results);
 
 
 
-proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
+proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : owned TestResult {
     
     var done = false;
     
-    var rng = new NPBRandomStream(real);
+    var rng = new owned NPBRandomStream(real);
 
     var mode = modes[modeIndex];
 
@@ -117,28 +117,28 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
 
     var efficiencyGoals = goals[modeIndex];
 
-    var jobs = new JobGroup();
-    var scheduler = new Scheduler(mode);
+    var jobs = new owned JobGroup();
+    var scheduler = new owned Scheduler(mode);
 
     //ask the scheduler how big of a queue it wants.
     var queueCapacity = scheduler.getOutputQueueCapacity(numCPUs);
 
     //create the queue between scheduler and CPUs
-    var schedulerToCPUs = new BlockingQueue(Job, queueCapacity);
+    var schedulerToCPUs = new owned BlockingQueue(owned Job, queueCapacity);
     scheduler.setOutputQueue(schedulerToCPUs);
 
     //create the cpus
     var cpusDomain = {0..numCPUs-1};
-    var cpus : [cpusDomain] CPU;
+    var cpus : [cpusDomain] owned CPU;
     forall i in cpus.domain {
-        cpus[i] = new CPU(schedulerToCPUs, "" + i, printAll);
+        cpus[i] = new owned CPU(schedulerToCPUs, "" + i, printAll);
         begin{
             cpus[i].start();
         }
     }
     
     //this is the queue that will add things to the scheduler
-    var newJobsToScheduler = new BlockingQueue(Job, numberJobs);
+    var newJobsToScheduler = new owned BlockingQueue(Job, numberJobs);
 
 
     //Throw a first round of jobs in it.  There's no waiting between creation of jobs.
@@ -149,7 +149,7 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
         //writeln("maxTime: ", maxTime);
         var jobLength = nextFactor * maxTime;
         //writeln("jobLength: ", jobLength);
-        var job = new Job(jobLength);
+        var job = new owned Job(jobLength);
         jobs.add(job); //add it to the group
         newJobsToScheduler.add(job); 
     }
@@ -157,7 +157,7 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
     //this thread to regularly print out how many jobs are waiting and how many have completed
     begin with (ref done) {
         while (!done) {
-            writeln(scheduler.getNumJobsWaiting() + " jobs waiting; " + getNumJobsCompleted(cpus) + " jobs completed.");
+            writeln(scheduler.getNumJobsWaiting() + " jobs waiting; " + getNumJobsProcessed(cpus) + " jobs completed.");
             sleep(max(.5, maxTime * 20));
         }
     }
@@ -171,7 +171,9 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
             if (i % 100 == 0) {
                 writeln("added job ", i);
             }*/
-            scheduler.addJob(newJobsToScheduler.remove());
+            var job : owned Job;
+            job = newJobsToScheduler.remove();
+            scheduler.addJob(job);
         }
     }
 
@@ -180,7 +182,7 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
     var numRemainingJobs = numberJobs - firstRoundSize;
     coforall i in cpusDomain {
         for j in 1..(numRemainingJobs / numCPUs) {
-            var job = new Job(rng.getNext() * maxTime);
+            var job = new owned Job(rng.getNext() * maxTime);
             jobs.add(job);
             newJobsToScheduler.add(job);
             //begin { scheduler.addJob(job); } //don't wait on this
@@ -212,7 +214,7 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : TestResult {
     
     done = true;
 
-    return new TestResult(score, maxScore, description);
+    return new owned TestResult(score, maxScore, description);
 
     /* Old version
 
@@ -233,13 +235,13 @@ class TestResult {
     var maxScore : int;
     var description : string;
 
-    proc TestResult(score: int, maxScore : int, description : string) {
+    proc init(score: int, maxScore : int, description : string) {
         this.score = score;
         this.maxScore = maxScore;
         this.description = description;
     }
 
-    proc TestResult(resultA : TestResult, resultB : TestResult) {
+    proc init(resultA : TestResult, resultB : TestResult) {
         this.score = resultA.getScore() + resultB.getScore();
         this.maxScore = resultA.getMaxScore() + resultB.getMaxScore();
         this.description = resultA.getDescription() + "\n\n" + resultB.getDescription();
@@ -264,7 +266,7 @@ class TestResult {
 
 }
 
-proc getNumJobsCompleted(cpus : [] CPU) {
+proc getNumJobsProcessed(cpus : [] owned CPU) {
     var numJobs = 0;
     for cpu in cpus {
         numJobs += cpu.getNumJobsCompleted();
@@ -285,12 +287,12 @@ class JobGroup {
 
     var synchronizer : Semaphore;
 
-    proc JobGroup() {
+    proc init() {
         this.numJobs = 0;
-        this.synchronizer = new Semaphore(1);
+        this.synchronizer = new owned Semaphore(1);
     }
 
-    proc add(job : Job) {
+    proc add(job : owned Job) {
         this.synchronizer.p();
         if (this.numJobs == this.jobsDomain.numIndices) {
             this.jobsDomain = {0..(this.jobsDomain.high * 2)};

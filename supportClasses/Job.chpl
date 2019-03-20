@@ -26,16 +26,17 @@ class Job {
     //Whether this has finished running.
     var isFinished : bool;
     
-    //Constructor.  Starts the clock 
-    proc Job(jobLength : real) {
+    //Initializer.  Sets the fields and starts the clock 
+    proc init(jobLength : real) {
+        this.timer = new Timer();
+        this.length = jobLength;
+        this.isWaiting = true;
+        this.isFinished = false;
         if (jobLength == 0) {
             writeln("Created a job with zero length!");
         }
-        this.length = jobLength;
-        this.isFinished = false;
-        this.isWaiting = true;
-        this.timer = new Timer();
         this.timer.start();
+        this.complete();
         //writeln("Just created job with length: " + this.length + " seconds!");
     }
     
