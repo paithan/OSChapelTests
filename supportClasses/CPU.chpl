@@ -15,7 +15,7 @@ class CPU {
     var verbosePrint : bool;
 
     //The incoming queue of Jobs.
-    var incoming : BlockingQueue(owned Job);
+    var incoming : BlockingQueue(shared Job);
     
     //The domain for the list of completed jobs.  This will grow while we're running the CPU.
     var completedDomain = {0..1};
@@ -36,7 +36,7 @@ class CPU {
     var numJobsCompleted : int;
     
     //Initializer.
-    proc init(queue: BlockingQueue(owned Job), name : string, printsAll : bool) {
+    proc init(queue: BlockingQueue(shared Job), name : string, printsAll : bool) {
         this.verbosePrint = printsAll;
         this.incoming = queue;
         this.name = name;
@@ -47,7 +47,8 @@ class CPU {
     //runs this CPU.  It will consume Jobs until stop() is called.
     proc start() {
         while (this.active) {
-            var job = this.incoming.remove();
+            var job : shared Job;
+            job = this.incoming.remove();
             if (this.numJobsCompleted > this.completedDomain.high) {
                 //the completedDomain is too small, so double the size.
                 this.completedDomain = {0..(2*this.numJobsCompleted)};
@@ -60,7 +61,7 @@ class CPU {
             this.waitTimes[this.numJobsCompleted] = job.getWaitTime();
             this.latencies[this.numJobsCompleted] = job.getLatency();
             if (this.verbosePrint) {
-                writeln("CPU " + this.name + " completed job #", this.numJobsCompleted, ":\n  Wait Time: ", this.waitTimes[this.numJobsCompleted], "s\n  Length: ", job.getLength() + "s\n  Latency: ", this.latencies[this.numJobsCompleted], "s");
+                writeln("CPU " + this.name + " completed job #", this.numJobsCompleted, " (id: ", job.id, ") :\n  Wait Time: ", this.waitTimes[this.numJobsCompleted], "s\n  Length: ", job.getLength() + "s\n  Latency: ", this.latencies[this.numJobsCompleted], "s");
             }
             this.numJobsCompleted +=1;
         }

@@ -14,6 +14,9 @@ class Job {
     //Expected running time in seconds.
     var length : real;
     
+    //The ID of the job.
+    var id : int;
+    
     //The amount of time between when the job is created and starts running.
     var waitTime : real;
     
@@ -27,9 +30,10 @@ class Job {
     var isFinished : bool;
     
     //Initializer.  Sets the fields and starts the clock 
-    proc init(jobLength : real) {
+    proc init(jobLength : real, id : int) {
         this.timer = new Timer();
         this.length = jobLength;
+        this.id = id;
         this.isWaiting = true;
         this.isFinished = false;
         if (jobLength == 0) {
@@ -37,7 +41,8 @@ class Job {
         }
         this.timer.start();
         this.complete();
-        //writeln("Just created job with length: " + this.length + " seconds!");
+        
+        //writeln("Just created job: ", this);
     }
     
     //Returns the expected running time, in seconds.
@@ -89,6 +94,15 @@ class Job {
     
     //prints this out
     proc writeThis(writer) {
-        writer.write("Job that will take about " + this.getLength() + "s.");
+        var status = "Waiting";
+        var toRun = "will run";
+        if (! this.isWaiting) {
+            status = "Running";
+        }
+        if (this.isFinished) {
+            status = "Finished";
+            status = "ran";
+        }
+        writer.write(status + " job with id: " + this.id + " that " + toRun + " for about " + this.getLength() + "s.");
     }  
 } //end of Job class

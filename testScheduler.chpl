@@ -22,11 +22,12 @@ use Scheduler;
 use CPU;
 
 //configurable constants
-config const n = 15000;
-config const c = 3;
-config const t : real = .001;
-config const p : bool = true;
-config const m : string = "all";
+config const n = 15000; //number of jobs to run in total
+config const c = 3; //number of CPUs
+config const t : real = .001; //maximum length of a single job
+config const p : bool = true; //whether or not to print out the details while running
+config const m : string = "all"; //which tests to run (this doesn't work right now, so just leave it alone.)
+config const tr : int = 0; //which trial to run. 0 is maximum, 1 is average, 2 is hybrid
 
 //better names
 var numberJobs = n;
@@ -47,12 +48,16 @@ modes = ("maximum", "average", "hybrid");
 
 var scoresDomain = {0..6};
 var scores : [scoresDomain] int;
-scores = (35, 30, 25, 20, 15, 10, 5);
+//scores = (35, 30, 25, 20, 15, 10, 5);
+scores = (70, 60, 50, 40, 30, 20, 10);
 
 var maxGoals, avgGoals, hybridGoals : [scores.domain] real;
-maxGoals = (175 * maxTime, 350 * maxTime, 700*maxTime, 1500*maxTime, 3000*maxTime, 6000*maxTime, 12000*maxTime);
-avgGoals = (41 * maxTime, 52 * maxTime, 65 * maxTime, 85 * maxTime, 100*maxTime, 120*maxTime, 150*maxTime);
-hybridGoals = (500*maxTime, 510*maxTime, 520*maxTime, 540*maxTime, 570*maxTime, 610*maxTime, 650*maxTime);
+//maxGoals = (175 * maxTime, 350 * maxTime, 700*maxTime, 1500*maxTime, 3000*maxTime, 6000*maxTime, 12000*maxTime); //old from Chapel v16
+maxGoals = (3000 * maxTime, 5000 * maxTime, 8000*maxTime, 15000*maxTime, 30000*maxTime, 60000*maxTime, 120000*maxTime);
+//avgGoals = (41 * maxTime, 52 * maxTime, 65 * maxTime, 85 * maxTime, 100*maxTime, 120*maxTime, 150*maxTime); //old from Chapel v16
+avgGoals = (900 * maxTime, 1100 * maxTime, 1400 * maxTime, 1800 * maxTime, 2000*maxTime, 2500*maxTime, 3000*maxTime);
+//hybridGoals = (500*maxTime, 510*maxTime, 520*maxTime, 540*maxTime, 570*maxTime, 610*maxTime, 650*maxTime); //old from Chapel v16
+hybridGoals = (10000*maxTime, 11000*maxTime, 11500*maxTime, 12500*maxTime, 14000*maxTime, 15000*maxTime, 17500*maxTime);
 
 var things : [0..2, 0..3] real;
 
@@ -65,10 +70,12 @@ var things : [0..2, 0..3] real;
 //efficiencyGoals = (30.5, 9.5, 50);
 
 
-var results : owned TestResult;
+var results : shared TestResult;
+
+trialsDomain = {tr..tr}; //have to reset the trialsDomain because I'm getting lots of errors, probably due to ownership issues.
 
 for i in trialsDomain {
-    var nilResult : owned TestResult;
+    var nilResult : shared TestResult;
     var mode = modes[i];
     if (testMode == "all" || testMode == mode) {
         writeln("About to run the " + mode + " test.");//  Press Enter to continue.");
@@ -90,7 +97,7 @@ for i in trialsDomain {
         if (results == nilResult) {
             results = newResult;
         } else {
-            results = new owned TestResult(results, newResult);
+            results = new shared TestResult(results, newResult);
         }
     }
     // I copied over the code from runTest because I can't figure out what's going on...
@@ -100,61 +107,77 @@ writeln(results);
 
 
 
-proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : owned TestResult {
+proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : shared TestResult {
     
     var done = false;
+    
+    var jobIds = {0 .. numberJobs - 1};
+    var firstRoundSize = min(numberJobs / 3, max(800, 50 * numCPUs)); // the number of jobs to be thrown into the already-waiting queue.
+    
+    writeln("Going to run a test with ", numCPUs, " and ", numberJobs, " jobs.");
+    writeln("We're going to first load ", firstRoundSize, " jobs into the queue, then deliver the remaining jobs at random intervals.");
+    
+    var firstRoundJobIds = jobIds # firstRoundSize;
+    var remainingJobIds = {firstRoundSize .. numberJobs - 1};
     
     var rng = new owned NPBRandomStream(real);
 
     var mode = modes[modeIndex];
 
+    writeln("Phase: Setting up the goals for this test.");
     var goals : [scoresDomain] real = maxGoals;
     if (mode == "average") {
         goals = avgGoals;
     } else if (mode == "hybrid") {
         goals = hybridGoals;
     }
-
     var efficiencyGoals = goals[modeIndex];
 
-    var jobs = new owned JobGroup();
+    var jobs = new shared JobGroup();
+    writeln("Phase: Creating the scheduler...");
     var scheduler = new owned Scheduler(mode);
+    writeln("Phase: Scheduler created!");
 
     //ask the scheduler how big of a queue it wants.
     var queueCapacity = scheduler.getOutputQueueCapacity(numCPUs);
 
     //create the queue between scheduler and CPUs
-    var schedulerToCPUs = new owned BlockingQueue(owned Job, queueCapacity);
+    writeln("Phase: Creating the BlockingQueue between the scheduler and the CPUs.");
+    var schedulerToCPUs = new shared BlockingQueue(shared Job, queueCapacity);
     scheduler.setOutputQueue(schedulerToCPUs);
 
     //create the cpus
+    writeln("Phase: Creating the CPUs.");
     var cpusDomain = {0..numCPUs-1};
-    var cpus : [cpusDomain] owned CPU;
+    var cpus : [cpusDomain] shared CPU;
     forall i in cpus.domain {
-        cpus[i] = new owned CPU(schedulerToCPUs, "" + i, printAll);
+        cpus[i] = new shared CPU(schedulerToCPUs, i : string, printAll);
         begin{
             cpus[i].start();
         }
     }
     
     //this is the queue that will add things to the scheduler
-    var newJobsToScheduler = new owned BlockingQueue(Job, numberJobs);
+    var newJobsToScheduler = new shared BlockingQueue(shared Job, numberJobs);
+    
+    
 
 
     //Throw a first round of jobs in it.  There's no waiting between creation of jobs.
-    var firstRoundSize = max(800, 50 * numCPUs);
-    forall i in 1..(firstRoundSize) {
+    writeln("Phase: Adding the first round of jobs.");
+    forall i in firstRoundJobIds {
         var nextFactor = rng.getNext();
         //writeln("nextFactor: ", nextFactor);
         //writeln("maxTime: ", maxTime);
         var jobLength = nextFactor * maxTime;
         //writeln("jobLength: ", jobLength);
-        var job = new owned Job(jobLength);
-        jobs.add(job); //add it to the group
+        var job = new shared Job(jobLength, i);
+        jobs.add(job); //add it to the JobGroup
         newJobsToScheduler.add(job); 
     }
     
     //this thread to regularly print out how many jobs are waiting and how many have completed
+    writeln("Phase: Launching a thread to periodically point out how many jobs are still waiting.");
     begin with (ref done) {
         while (!done) {
             writeln(scheduler.getNumJobsWaiting() + " jobs waiting; " + getNumJobsProcessed(cpus) + " jobs completed.");
@@ -165,13 +188,14 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : owned TestResul
     
     //this thread pulls jobs out of the queue and puts them into the scheduler.
     //at this point, the scheduler should start doing things.
+    writeln("Phase: Launching the thread to take jobs from the input queue and put them into the scheduler.");
     begin {
         for i in 1..numberJobs {
             /*
             if (i % 100 == 0) {
                 writeln("added job ", i);
             }*/
-            var job : owned Job;
+            var job : shared Job;
             job = newJobsToScheduler.remove();
             scheduler.addJob(job);
         }
@@ -179,10 +203,13 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : owned TestResul
 
     //Throw the rest of the jobs at the Scheduler
     //for each cpu, create a separate thread to add jobs
-    var numRemainingJobs = numberJobs - firstRoundSize;
+    writeln("Phase: Launch the threads to add newly-generated jobs to the scheduler.");
+    var numRemainingJobs = numberJobs - firstRoundSize; //necessary?  or take out.
     coforall i in cpusDomain {
-        for j in 1..(numRemainingJobs / numCPUs) {
-            var job = new owned Job(rng.getNext() * maxTime);
+        writeln("Phase: Launching the thread to generate new jobs for CPU #", i, ".");
+        for jobId in remainingJobIds by numCPUs align i {
+        //for j in 1..(numRemainingJobs / numCPUs) {
+            var job = new shared Job(rng.getNext() * maxTime, jobId);
             jobs.add(job);
             newJobsToScheduler.add(job);
             //begin { scheduler.addJob(job); } //don't wait on this
@@ -191,9 +218,11 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : owned TestResul
             //sleep(.96 * (rng.getNext() * maxTime));
             sleep(.44 * maxTime - .000008); //the .000008 is about the time the loop takes.
         }
+        writeln("Phase: Done generating jobs for CPU #", i, ".");
     }
 
     //get the appropriate score
+    writeln("Phase: Calculating scores!");
     var efficiencyMeasure = jobs.reportStats(modeIndex);
     var score = 0;
     var maxScore = scores[0];
@@ -208,13 +237,16 @@ proc runTest(numCPUs : int, numberJobs : int, modeIndex : int) : owned TestResul
             break;
         }
     }
+    writeln("Phase: Scores calculated!");
     var description = "Results of " + mode + " test:\nRecorded time: " + efficiencyMeasure + "s.\nBest goal passed: " + goalMade + "\nPoints earned: " + score + "/" + maxScore + "\n\n";
 
     writeln(description);
     
     done = true;
+    
+    writeln("Phase: Test run completed!\n*************************************************************");
 
-    return new owned TestResult(score, maxScore, description);
+    return new shared TestResult(score, maxScore, description);
 
     /* Old version
 
@@ -266,7 +298,7 @@ class TestResult {
 
 }
 
-proc getNumJobsProcessed(cpus : [] owned CPU) {
+proc getNumJobsProcessed(cpus : [] shared CPU) {
     var numJobs = 0;
     for cpu in cpus {
         numJobs += cpu.getNumJobsCompleted();
@@ -281,34 +313,43 @@ class JobGroup {
 
     var jobsDomain = {0..1};
 
-    var jobs : [jobsDomain] Job;
+    var jobs : [jobsDomain] shared Job;
 
     var numJobs : int;
 
-    var synchronizer : Semaphore;
+    var synchronizer : owned Semaphore;
 
     proc init() {
         this.numJobs = 0;
         this.synchronizer = new owned Semaphore(1);
     }
 
-    proc add(job : owned Job) {
+    proc add(job : shared Job) {
         this.synchronizer.p();
         if (this.numJobs == this.jobsDomain.numIndices) {
             this.jobsDomain = {0..(this.jobsDomain.high * 2)};
         }
         this.jobs[this.numJobs] = job;
         this.numJobs += 1;
+        //writeln("Just added a job to the group:");
+        //writeln(job);
         this.synchronizer.v();
     }
 
     proc allCompleted() : bool {
+        var anyRunning = false; //debugging!
         for jobIndex in 0..(this.numJobs-1) {
-            if (!this.jobs[jobIndex].isDone()) {
-                return false;
+            var job = this.jobs[jobIndex];
+            if (!job.isDone()) {
+                //Is this scaffolding, or are we keeping this?
+                //writeln("Job #", jobIndex, " is still running.");
+                //writeln("Job: ", job);
+                anyRunning = true;
+                //return false;
             }
         }
-        return true;
+        return !anyRunning;
+        //return true;
     }
 
     proc reportStats(statIndex : int) : real {
