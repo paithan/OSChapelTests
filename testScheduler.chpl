@@ -22,20 +22,22 @@ use Scheduler;
 use CPU;
 
 //configurable constants
-config const n = 15000; //number of jobs to run in total
+config const n = 10000; //number of jobs to run per CPU
 config const c = 3; //number of CPUs
 config const t : real = .001; //maximum length of a single job
-config const p : bool = true; //whether or not to print out the details while running
+config const v : bool = true; //whether or not to print out the details while running
 config const m : string = "all"; //which tests to run (this doesn't work right now, so just leave it alone.)
 config const tr : int = 0; //which trial to run. 0 is maximum, 1 is average, 2 is hybrid
 
 //better names
-var numberJobs = n;
+var numberJobs = n; //the number of jobs per CPU
 var numCPUs = c;
 var maxTime = t;
-var printAll = p;
+var printAll = v;
 var testMode = m;
 
+//scale for the number of CPUs
+numberJobs = (numberJobs * numCPUs);
 
 
 //number of different tests I'm going to run
@@ -51,13 +53,15 @@ var scores : [scoresDomain] int;
 //scores = (35, 30, 25, 20, 15, 10, 5);
 scores = (70, 60, 50, 40, 30, 20, 10);
 
+var baseTime = maxTime; // / numCPUs;
+
 var maxGoals, avgGoals, hybridGoals : [scores.domain] real;
 //maxGoals = (175 * maxTime, 350 * maxTime, 700*maxTime, 1500*maxTime, 3000*maxTime, 6000*maxTime, 12000*maxTime); //old from Chapel v16
-maxGoals = (3000 * maxTime, 5000 * maxTime, 8000*maxTime, 15000*maxTime, 30000*maxTime, 60000*maxTime, 120000*maxTime);
+maxGoals = (5000 * baseTime, 7500 * baseTime, 12000 * baseTime, 19000 * baseTime, 30000 * baseTime, 60000 * baseTime, 120000 * baseTime);
 //avgGoals = (41 * maxTime, 52 * maxTime, 65 * maxTime, 85 * maxTime, 100*maxTime, 120*maxTime, 150*maxTime); //old from Chapel v16
-avgGoals = (900 * maxTime, 1100 * maxTime, 1400 * maxTime, 1800 * maxTime, 2000*maxTime, 2500*maxTime, 3000*maxTime);
+avgGoals = (3000 * baseTime, 4000 * baseTime, 5000 * baseTime, 7500 * baseTime, 10000 * baseTime, 13000 * baseTime, 19000 * baseTime);
 //hybridGoals = (500*maxTime, 510*maxTime, 520*maxTime, 540*maxTime, 570*maxTime, 610*maxTime, 650*maxTime); //old from Chapel v16
-hybridGoals = (10000*maxTime, 11000*maxTime, 11500*maxTime, 12500*maxTime, 14000*maxTime, 15000*maxTime, 17500*maxTime);
+hybridGoals = (31000 * baseTime, 34000 * baseTime, 38500 * baseTime, 45500 * baseTime, 55000 * baseTime, 75000 * baseTime, 100000 * baseTime);
 
 var things : [0..2, 0..3] real;
 
