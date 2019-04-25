@@ -59,7 +59,7 @@ var maxGoals, avgGoals, hybridGoals : [scores.domain] real;
 //maxGoals = (175 * maxTime, 350 * maxTime, 700*maxTime, 1500*maxTime, 3000*maxTime, 6000*maxTime, 12000*maxTime); //old from Chapel v16
 maxGoals = (5000 * baseTime, 7500 * baseTime, 12000 * baseTime, 19000 * baseTime, 30000 * baseTime, 60000 * baseTime, 120000 * baseTime);
 //avgGoals = (41 * maxTime, 52 * maxTime, 65 * maxTime, 85 * maxTime, 100*maxTime, 120*maxTime, 150*maxTime); //old from Chapel v16
-avgGoals = (300 * baseTime, 450 * baseTime, 600 * baseTime, 1000 * baseTime, 1500 * baseTime, 2500 * baseTime, 5000 * baseTime);
+avgGoals = (1900 * baseTime, 3000 * baseTime, 5000 * baseTime, 8000 * baseTime, 13000 * baseTime, 25000 * baseTime, 50000 * baseTime);
 //hybridGoals = (500*maxTime, 510*maxTime, 520*maxTime, 540*maxTime, 570*maxTime, 610*maxTime, 650*maxTime); //old from Chapel v16
 hybridGoals = (31000 * baseTime, 34000 * baseTime, 38500 * baseTime, 45500 * baseTime, 55000 * baseTime, 75000 * baseTime, 100000 * baseTime);
 
